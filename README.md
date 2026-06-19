@@ -45,6 +45,37 @@ npm run build
 
 ---
 
+## 💻 Instalación en otra Computadora
+
+### Opción A: Como Usuario Final (Ejecutable Portátil)
+Si solo quieres ejecutar la aplicación en otra laptop con Windows:
+1. En la laptop donde tienes el código, compila y construye el empaquetado ejecutando:
+   ```bash
+   npm run build
+   ```
+2. Esto creará un directorio llamado `dist-package/` en la raíz.
+3. Copia el archivo ejecutable portable generado (ej. `Gravity Task Manager Portable <versión>.exe`) a una memoria USB, carpeta compartida o correo, y llévalo a la otra laptop.
+4. Abre el archivo `.exe` en la otra laptop para usar la aplicación directamente (no requiere asistente de instalación).
+
+### Opción B: Para Continuar el Desarrollo
+Si quieres seguir modificando el código en la otra laptop:
+1. Asegúrate de tener instalado [Node.js](https://nodejs.org/) (LTS) y [Git](https://git-scm.com/).
+2. Abre la terminal en la otra laptop y clona este repositorio:
+   ```bash
+   git clone https://github.com/Marduck182/Gravity-Task-Manager.git
+   ```
+3. Accede a la carpeta del proyecto e instala las dependencias de Node:
+   ```bash
+   cd "task manager"
+   npm install
+   ```
+4. Inicia el entorno de desarrollo con recarga en vivo ejecutando:
+   ```bash
+   npm run dev
+   ```
+
+---
+
 ## 📂 Estructura del Código
 
 *   `src/main/`: Lógica del proceso principal de Electron (creación de ventanas, persistencia IPC de datos en formato JSON).
