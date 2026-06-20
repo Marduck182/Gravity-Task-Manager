@@ -69,8 +69,14 @@ export function KanbanBoard({
     <div className="p-6 flex-1 flex flex-col min-h-0">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h3 className={`text-sm font-black tracking-wide transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Tablero Kanban ({selectedDate})</h3>
-          <p className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 transition-colors ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>Arrastra y suelta tareas para cambiar su estado para esta fecha</p>
+          <h3 className={`text-sm font-black tracking-wide transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+            {selectedProjectId 
+              ? `Tablero Kanban: ${projects.find(p => p.id === selectedProjectId)?.emoji} ${projects.find(p => p.id === selectedProjectId)?.name}` 
+              : 'Tablero Kanban: Todas las Actividades'}
+          </h3>
+          <p className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 transition-colors ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+            Arrastra y suelta tareas para cambiar su estado
+          </p>
         </div>
         {selectedProjectId && (
           <button

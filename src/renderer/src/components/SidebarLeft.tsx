@@ -15,9 +15,18 @@ import {
   Moon,
   Link,
   Download,
-  Upload
+  Upload,
+  FileText
 } from 'lucide-react';
 import { useTodoStore, Project, Task } from '../store/useTodoStore';
+
+const getLocalTodayStr = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
 
 interface SidebarLeftProps {
   openNewProjectModal: () => void;
@@ -63,6 +72,7 @@ export function SidebarLeft({
   const showArchived = useTodoStore((state) => state.showArchived);
   const setShowArchived = useTodoStore((state) => state.setShowArchived);
   const selectedDate = useTodoStore((state) => state.selectedDate);
+  const setSelectedDate = useTodoStore((state) => state.setSelectedDate);
   const exportData = useTodoStore((state) => state.exportData);
   const importData = useTodoStore((state) => state.importData);
   const showAlert = useTodoStore((state) => state.showAlert);
@@ -75,7 +85,7 @@ export function SidebarLeft({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const getCategoryCount = (projId: string) => {
-    return dayTasks.filter(t => t.projectId === projId).length;
+    return tasks.filter(t => t.projectId === projId).length;
   };
 
   const formatTimer = (seconds: number) => {
@@ -106,6 +116,45 @@ export function SidebarLeft({
     e.target.value = '';
   };
 
+  const copyProjectReport = (projId: string) => {
+    const proj = projects.find(p => p.id === projId);
+    if (!proj) return;
+
+    const projTasks = tasks.filter(t => t.projectId === projId);
+    const total = projTasks.length;
+    const completed = projTasks.filter(t => t.status === 'completada');
+    const enCurso = projTasks.filter(t => t.status === 'en-curso');
+    const pendiente = projTasks.filter(t => t.status === 'pendiente');
+    const bloqueada = projTasks.filter(t => t.status === 'bloqueada');
+
+    const pct = total > 0 ? Math.round((completed.length / total) * 100) : 0;
+
+    let md = `# Reporte de Proyecto: ${proj.emoji} ${proj.name}\n\n`;
+    md += `**Progreso General:** ${completed.length} de ${total} completadas (${pct}%)\n\n`;
+    
+    md += `## ⚡ En Curso (${enCurso.length})\n`;
+    if (enCurso.length === 0) md += `- Sin tareas activas.\n`;
+    else enCurso.forEach(t => md += `- ${t.title} (Vence: ${t.endDate || 'N/A'})\n`);
+    
+    md += `\n## 🚨 Bloqueadas (${bloqueada.length})\n`;
+    if (bloqueada.length === 0) md += `- Sin tareas bloqueadas.\n`;
+    else bloqueada.forEach(t => md += `- ${t.title} (Desde: ${t.statusChangedAt || t.startDate || 'N/A'})\n`);
+
+    md += `\n## 📋 Pendientes (${pendiente.length})\n`;
+    if (pendiente.length === 0) md += `- Sin tareas pendientes.\n`;
+    else pendiente.forEach(t => md += `- ${t.title} (Inicio: ${t.startDate || 'N/A'})\n`);
+
+    md += `\n## ✓ Completadas (${completed.length})\n`;
+    if (completed.length === 0) md += `- Ninguna completada aún.\n`;
+    else completed.forEach(t => md += `- ${t.title}\n`);
+
+    navigator.clipboard.writeText(md).then(() => {
+      showAlert('Reporte de Proyecto', `¡El resumen del proyecto "${proj.emoji} ${proj.name}" ha sido copiado al portapapeles en Markdown!`);
+    }).catch(() => {
+      showAlert('Error', 'No se pudo copiar el reporte al portapapeles.');
+    });
+  };
+
   return (
     <div className={`w-64 border-r flex flex-col p-5 select-none shrink-0 transition-colors ${isDarkMode ? 'bg-[#090a0f] border-white/5' : 'bg-slate-100 border-slate-200'}`}>
       {/* User profile */}
@@ -124,6 +173,7 @@ export function SidebarLeft({
       {/* Navigation Links */}
       <div className="space-y-1 mb-6">
         <p className={`text-[10px] font-bold tracking-wider mb-2 transition-colors ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>MI NAVEGACIÓN</p>
+
         <button 
           onClick={() => setActiveView('panel')}
           className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
@@ -205,7 +255,7 @@ export function SidebarLeft({
       {/* Life Areas / Projects Sidebar Section */}
       <div className="flex flex-col mb-auto overflow-hidden">
         <div className="flex justify-between items-center mb-2 px-1">
-          <p className={`text-[10px] font-bold tracking-wider transition-colors ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>PROYECTOS ({dayTasks.length})</p>
+          <p className={`text-[10px] font-bold tracking-wider transition-colors ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>PROYECTOS ({tasks.filter(t => { const p = projects.find(proj => proj.id === t.projectId); return p && !p.archived; }).length})</p>
           <button 
             onClick={openNewProjectModal}
             className="text-gray-500 hover:text-white transition-colors"
@@ -233,7 +283,14 @@ export function SidebarLeft({
               
               <div className="flex items-center gap-1.5">
                 {/* Hover actions */}
-                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                  <button 
+                    onClick={() => copyProjectReport(proj.id)}
+                    className="text-gray-500 hover:text-indigo-400 p-0.5"
+                    title="Copiar Reporte de Proyecto"
+                  >
+                    <FileText className="w-3 h-3" />
+                  </button>
                   <button 
                     onClick={(e) => { e.stopPropagation(); openEditProjectModal(proj, e); }}
                     className="text-gray-500 hover:text-white p-0.5"

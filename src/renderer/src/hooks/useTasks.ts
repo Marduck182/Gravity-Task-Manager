@@ -182,7 +182,8 @@ export function useTasks({
         endTime: taskFormEndTime,
         description: editorHtml,
         subtasks: taskFormSubtasks,
-        tags: taskFormTags
+        tags: taskFormTags,
+        statusChangedAt: getLocalTodayStr()
       };
       storeAddTask(newTask);
     }
@@ -206,7 +207,8 @@ export function useTasks({
       const draggedTask = tasks.find(t => t.id === id);
       if (draggedTask) {
         const otherTasks = tasks.filter(t => t.id !== id);
-        const updatedDragged = { ...draggedTask, status: newStatus };
+        const statusChangedAt = draggedTask.status !== newStatus ? getLocalTodayStr() : (draggedTask.statusChangedAt || getLocalTodayStr());
+        const updatedDragged = { ...draggedTask, status: newStatus, statusChangedAt };
         const updated = [...otherTasks, updatedDragged];
         setTasks(updated);
         saveState({ tasks: updated });
@@ -225,10 +227,11 @@ export function useTasks({
     if (!draggedTask || !targetTask) return;
 
     const targetStatus = targetTask.status;
+    const statusChangedAt = draggedTask.status !== targetStatus ? getLocalTodayStr() : (draggedTask.statusChangedAt || getLocalTodayStr());
     const tasksWithoutDragged = tasks.filter(t => t.id !== draggedId);
     const targetIdx = tasksWithoutDragged.findIndex(t => t.id === targetTaskId);
 
-    const updatedDragged = { ...draggedTask, status: targetStatus };
+    const updatedDragged = { ...draggedTask, status: targetStatus, statusChangedAt };
     const updatedTasks = [...tasksWithoutDragged];
     updatedTasks.splice(targetIdx, 0, updatedDragged);
 

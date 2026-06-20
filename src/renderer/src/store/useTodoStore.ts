@@ -42,6 +42,7 @@ export interface Task {
   description: string;
   subtasks?: SubTask[];
   tags?: string[];
+  statusChangedAt?: string;
 }
 
 export interface LinkFolder {
@@ -280,13 +281,15 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
 
   // --- TASK ACTIONS ---
   addTask: (task) => {
-    const updated = [...get().tasks, task];
+    const updated = [...get().tasks, { ...task, statusChangedAt: task.statusChangedAt || getLocalTodayStr() }];
     set({ tasks: updated });
     get().saveState({ tasks: updated });
   },
 
   updateTask: (task) => {
-    const updated = get().tasks.map(t => t.id === task.id ? task : t);
+    const oldTask = get().tasks.find(t => t.id === task.id);
+    const statusChangedAt = oldTask && oldTask.status !== task.status ? getLocalTodayStr() : (oldTask?.statusChangedAt || getLocalTodayStr());
+    const updated = get().tasks.map(t => t.id === task.id ? { ...task, statusChangedAt } : t);
     set({ tasks: updated });
     get().saveState({ tasks: updated });
   },
@@ -301,7 +304,7 @@ export const useTodoStore = create<TodoStore>((set, get) => ({
     const updated = get().tasks.map(t => {
       if (t.id === id) {
         const newStatus = t.status === 'completada' ? 'pendiente' : 'completada';
-        return { ...t, status: newStatus as any };
+        return { ...t, status: newStatus as any, statusChangedAt: getLocalTodayStr() };
       }
       return t;
     });

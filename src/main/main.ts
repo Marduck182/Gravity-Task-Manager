@@ -71,7 +71,7 @@ function createWindow() {
   }
 
   // Open DevTools by default to debug load failure
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
@@ -83,6 +83,10 @@ function createWindow() {
       mainWindow?.hide();
     }
     return false;
+  });
+
+  mainWindow.on('minimize', () => {
+    mainWindow?.hide();
   });
 
   mainWindow.on('closed', () => {
@@ -123,7 +127,7 @@ ipcMain.on('open-external', (event, url) => {
 
 // IPC Handling for window controls
 ipcMain.on('window-minimize', () => {
-  mainWindow?.minimize();
+  mainWindow?.hide();
 });
 
 ipcMain.on('window-maximize', () => {
@@ -145,8 +149,8 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
 
-  // Register a global shortcut (Win+Alt+T) to toggle window visibility
-  globalShortcut.register('CommandOrControl+Alt+T', () => {
+  // Register a global shortcut (Ctrl+Shift+T) to toggle window visibility
+  globalShortcut.register('CommandOrControl+Shift+T', () => {
     if (mainWindow) {
       if (mainWindow.isVisible()) {
         mainWindow.hide();

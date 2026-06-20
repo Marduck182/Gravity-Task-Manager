@@ -10,8 +10,17 @@ import {
   Palette,
   Archive,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileText
 } from 'lucide-react';
+
+const getLocalTodayStr = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
 
 // Components
 import { Titlebar } from './components/Titlebar';
@@ -147,6 +156,46 @@ export default function App() {
     setTaskFormProjectId
   });
 
+  const copyProjectReport = (projId: string) => {
+    const proj = projects.find(p => p.id === projId);
+    if (!proj) return;
+
+    const projTasks = tasks.filter(t => t.projectId === projId);
+    const total = projTasks.length;
+    const completed = projTasks.filter(t => t.status === 'completada');
+    const enCurso = projTasks.filter(t => t.status === 'en-curso');
+    const pendiente = projTasks.filter(t => t.status === 'pendiente');
+    const bloqueada = projTasks.filter(t => t.status === 'bloqueada');
+
+    const pct = total > 0 ? Math.round((completed.length / total) * 100) : 0;
+
+    let md = `# Reporte de Proyecto: ${proj.emoji} ${proj.name}\n\n`;
+    md += `**Progreso General:** ${completed.length} de ${total} completadas (${pct}%)\n\n`;
+    
+    md += `## ⚡ En Curso (${enCurso.length})\n`;
+    if (enCurso.length === 0) md += `- Sin tareas activas.\n`;
+    else enCurso.forEach(t => md += `- ${t.title} (Vence: ${t.endDate || 'N/A'})\n`);
+    
+    md += `\n## 🚨 Bloqueadas (${bloqueada.length})\n`;
+    if (bloqueada.length === 0) md += `- Sin tareas bloqueadas.\n`;
+    else bloqueada.forEach(t => md += `- ${t.title} (Desde: ${t.statusChangedAt || t.startDate || 'N/A'})\n`);
+
+    md += `\n## 📋 Pendientes (${pendiente.length})\n`;
+    if (pendiente.length === 0) md += `- Sin tareas pendientes.\n`;
+    else pendiente.forEach(t => md += `- ${t.title} (Inicio: ${t.startDate || 'N/A'})\n`);
+
+    md += `\n## ✓ Completadas (${completed.length})\n`;
+    if (completed.length === 0) md += `- Ninguna completada aún.\n`;
+    else completed.forEach(t => md += `- ${t.title}\n`);
+
+    const showAlert = useTodoStore.getState().showAlert;
+    navigator.clipboard.writeText(md).then(() => {
+      showAlert('Reporte de Proyecto', `¡El resumen del proyecto "${proj.emoji} ${proj.name}" ha sido copiado al portapapeles en Markdown!`);
+    }).catch(() => {
+      showAlert('Error', 'No se pudo copiar el reporte al portapapeles.');
+    });
+  };
+
   // Fallback project setup on mount
   useEffect(() => {
     if (projects.length > 0 && !taskFormProjectId) {
@@ -281,6 +330,11 @@ export default function App() {
     return task.startDate === selectedDate && (!proj || !proj.archived);
   });
 
+  const kanbanTasks = tasks.filter(task => {
+    const proj = projects.find(p => p.id === task.projectId);
+    return !proj || !proj.archived;
+  });
+
   const searchFilter = (task: Task) => {
     const query = searchQuery.toLowerCase().trim();
     if (!query) return true;
@@ -302,11 +356,11 @@ export default function App() {
   });
 
   const getCategoryCount = (projId: string) => {
-    return dayTasks.filter(t => t.projectId === projId).length;
+    return tasks.filter(t => t.projectId === projId).length;
   };
 
   const getCompletedCategoryCount = (projId: string) => {
-    return dayTasks.filter(t => t.projectId === projId && t.status === 'completada').length;
+    return tasks.filter(t => t.projectId === projId && t.status === 'completada').length;
   };
 
   const getCategoryPercentage = (projId: string) => {
@@ -404,6 +458,7 @@ export default function App() {
 
             {/* Time / Date */}
             <div className="flex items-center gap-4">
+              
               <div className="text-right">
                 <span className={`text-sm font-extrabold font-mono leading-none block transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                   {currentTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -429,8 +484,8 @@ export default function App() {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className={`text-sm font-black tracking-wide transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Líneas de Progreso de Hoy</h3>
-                    <p className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 transition-colors ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>Estadísticas por proyecto para la fecha activa (Haz clic para filtrar en Kanban)</p>
+                    <h3 className={`text-sm font-black tracking-wide transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Líneas de Progreso de Proyectos</h3>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 transition-colors ${isDarkMode ? 'text-gray-500' : 'text-slate-400'}`}>Estadísticas globales por proyecto (Haz clic para filtrar en Kanban)</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
@@ -459,7 +514,14 @@ export default function App() {
                           </div>
                           <div className="flex items-start gap-1.5">
                             {/* Hover actions */}
-                            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                              <button 
+                                onClick={() => copyProjectReport(proj.id)}
+                                className="text-gray-500 hover:text-indigo-400 p-0.5"
+                                title="Copiar Reporte de Proyecto"
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                              </button>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); projectsHook.openEditProjectModal(proj, e); }}
                                 className="text-gray-500 hover:text-white p-0.5"
@@ -496,7 +558,7 @@ export default function App() {
                             <span className={`text-[11px] font-black transition-colors ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>
                               {getCompletedCategoryCount(proj.id)} de {getCategoryCount(proj.id)} completadas
                             </span>
-                            <span className={`text-[9px] font-bold tracking-wider transition-colors ${isDarkMode ? 'text-gray-600' : 'text-slate-400'}`}>Hoy</span>
+                            <span className={`text-[9px] font-bold tracking-wider transition-colors ${isDarkMode ? 'text-gray-600' : 'text-slate-400'}`}>Total</span>
                           </div>
                           <div className={`w-full h-2 rounded-full overflow-hidden transition-colors ${isDarkMode ? 'bg-white/5' : 'bg-slate-100'}`}>
                             <div 
@@ -584,7 +646,7 @@ export default function App() {
               selectedProjectId={selectedProjectId}
               setSelectedProjectId={setSelectedProjectId}
               projects={projects}
-              dayTasks={dayTasks}
+              dayTasks={kanbanTasks}
               searchFilter={searchFilter}
               handleDragStart={tasksHook.handleDragStart}
               handleDragOver={tasksHook.handleDragOver}

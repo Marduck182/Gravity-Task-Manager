@@ -298,6 +298,8 @@ export function WeeklySchedule({
             const emoji = proj?.emoji || '📋';
             const pos = getHorizontalMetrics(task.startDate, task.endDate);
             const isCompleted = task.status === 'completada';
+            const isOverdue = !isCompleted && task.endDate && task.endDate < todayStr;
+            const isBlocked = task.status === 'bloqueada';
             const statusConf = statusColors[task.status] || statusColors['pendiente'];
 
             return (
@@ -312,13 +314,19 @@ export function WeeklySchedule({
                     position: 'absolute',
                     left: pos.left,
                     width: pos.width,
-                    backgroundColor: isDarkMode ? statusConf.bgDark : statusConf.bgLight,
-                    borderColor: `${statusConf.border}40`,
-                    borderLeft: `3.5px solid ${statusConf.border}`,
+                    backgroundColor: isBlocked 
+                      ? (isDarkMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(239, 68, 68, 0.08)') 
+                      : (isDarkMode ? statusConf.bgDark : statusConf.bgLight),
+                    borderColor: isBlocked ? 'rgba(239, 68, 68, 0.3)' : `${statusConf.border}40`,
+                    borderLeft: `3.5px solid ${isBlocked ? '#ef4444' : statusConf.border}`,
                     zIndex: 10
                   }}
                   className={`border rounded-xl px-3 py-1.5 h-[40px] flex items-center justify-between cursor-pointer select-none transition-all hover:scale-[1.01] hover:shadow-md group relative ${
                     isCompleted ? 'opacity-60' : ''
+                  } ${
+                    isBlocked 
+                      ? (isDarkMode ? 'shadow-glow shadow-red-500/5' : 'shadow-sm')
+                      : ''
                   }`}
                 >
                   {/* Left part: project emoji + task title */}
@@ -326,7 +334,9 @@ export function WeeklySchedule({
                     <span className="text-[10px] filter saturate-150 shrink-0">{emoji}</span>
                     <span 
                       className={`text-xs font-extrabold truncate leading-tight transition-colors ${
-                        isDarkMode ? 'text-gray-100 group-hover:text-white' : 'text-slate-800 group-hover:text-slate-900'
+                        isBlocked 
+                          ? 'text-red-400 dark:text-red-300' 
+                          : (isDarkMode ? 'text-gray-100 group-hover:text-white' : 'text-slate-800 group-hover:text-slate-900')
                       } ${isCompleted ? 'line-through text-gray-500' : ''}`}
                     >
                       {task.title}
@@ -349,6 +359,13 @@ export function WeeklySchedule({
                         </span>
                       );
                     })()}
+
+                    {/* Overdue alert badge */}
+                    {isOverdue && (
+                      <span className="px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20 text-red-500 animate-pulse uppercase tracking-wider text-[7.5px] font-black shrink-0">
+                        🚨 Retrasada
+                      </span>
+                    )}
                     
                     {/* Date label */}
                     <span 

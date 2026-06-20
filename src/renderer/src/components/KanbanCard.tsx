@@ -1,5 +1,6 @@
 import React from 'react';
 import { Edit2 } from 'lucide-react';
+import { useTodoStore } from '../store/useTodoStore';
 
 interface SubTask {
   id: string;
@@ -19,6 +20,7 @@ interface Task {
   description: string;
   subtasks?: SubTask[];
   tags?: string[];
+  statusChangedAt?: string;
 }
 
 interface Project {
@@ -41,6 +43,40 @@ interface KanbanCardProps {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
 }
 
+const getLocalTodayStr = () => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const getDaysSinceStatusChange = (statusChangedAt?: string, id?: string) => {
+  try {
+    const todayStr = getLocalTodayStr();
+    let dateStr = statusChangedAt;
+    if (!dateStr && id && id.startsWith('t-')) {
+      const timestamp = parseInt(id.split('-')[1], 10);
+      if (!isNaN(timestamp)) {
+        dateStr = new Date(timestamp).toISOString().split('T')[0];
+      }
+    }
+    if (!dateStr) return 0;
+    const changedDate = new Date(dateStr + 'T00:00:00');
+    const todayDate = new Date(todayStr + 'T00:00:00');
+    const diffTime = todayDate.getTime() - changedDate.getTime();
+    if (diffTime <= 0) return 0;
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  } catch (e) {
+    return 0;
+  }
+};
+
+const isOverdue = (task: Task) => {
+  if (task.status === 'completada' || !task.endDate) return false;
+  return task.endDate < getLocalTodayStr();
+};
+
 export function KanbanCard({
   task,
   projects,
@@ -56,6 +92,8 @@ export function KanbanCard({
   const totalSub = task.subtasks ? task.subtasks.length : 0;
   const completedSub = task.subtasks ? task.subtasks.filter(st => st.completed).length : 0;
   const pct = totalSub > 0 ? Math.round((completedSub / totalSub) * 100) : 0;
+  
+  const setSearchQuery = useTodoStore((state) => state.setSearchQuery);
 
   const formatShortDate = (dateStr: string) => {
     if (!dateStr) return '';
@@ -75,6 +113,9 @@ export function KanbanCard({
     return `${formatShortDate(s)} - ${formatShortDate(e)}`;
   };
 
+  const daysStagnant = getDaysSinceStatusChange(task.statusChangedAt, task.id);
+  const taskOverdue = isOverdue(task);
+
   return (
     <div 
       draggable
@@ -83,20 +124,40 @@ export function KanbanCard({
       onDrop={(e) => handleDropOnTask(e, task.id)}
       onClick={() => openEditTaskForm(task)}
       className={`border-l-[3px] p-2.5 rounded-lg flex flex-col justify-between active:scale-[0.98] cursor-grab transition-all ${
-        isDarkMode 
-          ? 'bg-[#1b1d30]/60 border-white/5 hover:shadow-lg' 
-          : 'bg-white border-slate-200/80 hover:shadow-md'
+        task.status === 'bloqueada'
+          ? (isDarkMode 
+              ? 'bg-red-950/20 border-red-500/30 hover:border-red-500/50 shadow-glow shadow-red-500/5 hover:shadow-lg' 
+              : 'bg-red-50 border-red-200 hover:border-red-300 hover:shadow-md')
+          : (isDarkMode 
+              ? 'bg-[#1b1d30]/60 border-white/5 hover:shadow-lg' 
+              : 'bg-white border-slate-200/80 hover:shadow-md')
       }`}
       style={{ 
-        borderLeftColor: accentColor,
+        borderLeftColor: task.status === 'bloqueada' ? '#ef4444' : accentColor,
       }}
     >
       <div className="flex justify-between items-start gap-2 mb-1">
-        <h4 className={`text-[11px] font-bold leading-snug ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{task.title}</h4>
+        <h4 className={`text-[11px] font-bold leading-snug ${isDarkMode ? 'text-white' : 'text-slate-800'} ${task.status === 'bloqueada' ? 'text-red-400 dark:text-red-300' : ''}`}>{task.title}</h4>
         <button onClick={(e) => { e.stopPropagation(); openEditTaskForm(task); }} className={`shrink-0 transition-colors ${isDarkMode ? 'text-gray-500 hover:text-white' : 'text-slate-400 hover:text-slate-700'}`}>
           <Edit2 className="w-2.5 h-2.5" />
         </button>
       </div>
+
+      {/* Alert badges for Stagnant/Overdue */}
+      {task.status !== 'completada' && (taskOverdue || daysStagnant >= 3) && (
+        <div className="flex flex-wrap gap-1 mt-0.5 mb-1.5 select-none" onClick={(e) => e.stopPropagation()}>
+          {taskOverdue && (
+            <span className="text-[7.5px] font-black px-1.5 py-0.5 rounded border border-red-500/20 bg-red-500/10 text-red-500 uppercase tracking-wider flex items-center gap-0.5 animate-pulse">
+              🚨 Retrasada
+            </span>
+          )}
+          {daysStagnant >= 3 && (
+            <span className="text-[7.5px] font-black px-1.5 py-0.5 rounded border border-amber-500/20 bg-amber-500/10 text-amber-500 uppercase tracking-wider flex items-center gap-0.5">
+              ⚠️ Inactiva {daysStagnant}d
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Tags list */}
       {task.tags && task.tags.length > 0 && (
@@ -104,12 +165,17 @@ export function KanbanCard({
           {task.tags.map(t => (
             <span 
               key={t}
-              className="text-[8px] font-extrabold px-1.5 py-0.2 rounded border uppercase tracking-wider"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSearchQuery(t);
+              }}
+              className="text-[8px] font-extrabold px-1.5 py-0.2 rounded border uppercase tracking-wider cursor-pointer transition-all"
               style={{
                 borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
                 backgroundColor: isDarkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
                 color: isDarkMode ? '#a1a1aa' : '#475569'
               }}
+              title={`Filtrar por etiqueta: ${t}`}
             >
               {t}
             </span>
